@@ -1,0 +1,87 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class MLA_DSAM(nn.Module):
+    def __init__(self, dim_in_list, dim_out):
+        """
+        多尺度注意力深度可分离卷积模块（MLA-DSAM）
+        
+        Args:
+            dim_in_list: 多尺度输入的通道数列表（如 [C1, C2, C3, C4]）
+            dim_out: 输出特征图的通道数
+        """
+        super(MLA_DSAM, self).__init__()
+        
+        # 1. 多分支深度可分离卷积（DSCConv）
+        self.dsc_branches = nn.ModuleList([
+            nn.Sequential(
+                # Depthwise 卷积（分组数=输入通道数，实现深度分离）
+                nn.Conv2d(dim_in, dim_in, kernel_size=3, stride=1, padding=1, groups=dim_in),
+                # Pointwise 卷积（1×1 卷积，实现通道融合）
+                nn.Conv2d(dim_in, dim_out, kernel_size=1)
+            ) for dim_in in dim_in_list
+        ])
+        
+        # 2. 下采样（示例用最大池化，也可替换为步幅卷积）
+        self.down_sample = nn.MaxPool2d(kernel_size=2, stride=2)
+        
+        # 3. 特征融合与编码（1×1 卷积融合多分支输出）
+        self.feature_fusion = nn.Conv2d(len(dim_in_list) * dim_out, dim_out, kernel_size=1)
+        
+        # 4. 空间注意力模块（为每个尺度特征生成注意力权重）
+        self.spatial_attentions = nn.ModuleList([
+            nn.Sequential(
+                nn.Conv2d(dim_out, dim_out, kernel_size=1),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(dim_out, 1, kernel_size=1),
+                nn.Sigmoid()  # 注意力权重归一化到 [0,1]
+            ) for _ in range(len(dim_in_list))
+        ])
+        
+        # 5. 最终特征融合（融合“编码特征”与“注意力加权特征”）
+        self.final_fusion = nn.Conv2d(2 * dim_out, dim_out, kernel_size=1)
+
+    def forward(self, x_list):
+        """
+        Args:
+            x_list: 多尺度输入特征列表（如 [feat1, feat2, feat3, feat4]）
+        Returns:
+            融合后的特征图
+        """
+        # Step 1: 各分支通过深度可分离卷积
+        dsc_outputs = []
+        for x, dsc_branch in zip(x_list, self.dsc_branches):
+            dsc_outputs.append(dsc_branch(x))
+        
+        # Step 2: 特征交互（concat 多分支输出）
+        interacted = torch.cat(dsc_outputs, dim=1)
+        
+        # Step 3: 下采样
+        downsampled = self.down_sample(interacted)
+        
+        # Step 4: 特征融合与编码
+        fused_encoded = self.feature_fusion(downsampled)
+        
+        # Step 5: 多尺度特征调整尺寸（与编码特征尺寸对齐）
+        h, w = fused_encoded.shape[2], fused_encoded.shape[3]
+        resized_dsc_outputs = [
+            F.interpolate(dsc_out, size=(h, w), mode='bilinear', align_corners=True)
+            for dsc_out in dsc_outputs
+        ]
+        
+        # Step 6: 空间注意力加权
+        attention_weighted_feats = []
+        for resized_feat, att_layer in zip(resized_dsc_outputs, self.spatial_attentions):
+            att_weight = att_layer(resized_feat)  # 生成空间注意力权重
+            weighted_feat = resized_feat * att_weight  # 特征加权
+            attention_weighted_feats.append(weighted_feat)
+        
+        # 融合所有注意力加权特征
+        fused_att = torch.sum(torch.stack(attention_weighted_feats), dim=0)
+        
+        # Step 7: 最终融合（编码特征 + 注意力加权特征）
+        final = torch.cat([fused_encoded, fused_att], dim=1)
+        final = self.final_fusion(final)
+        
+        return final
