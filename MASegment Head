@@ -5,7 +5,7 @@ import math
 # from utils import autopad, make_anchors, dist2bbox, DFL, Scale
 
 class MASegment(nn.Module):
-    """YOLOv8 MASegment head for segmentation models."""
+   
 
     def __init__(self, nc=80, nm=32, npr=256, hidc=256, ch=()):
         """Initialize the YOLO MASegment attributes such as the number of masks, prototypes, and convolution layers."""
