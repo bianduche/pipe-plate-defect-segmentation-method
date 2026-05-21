@@ -1,26 +1,27 @@
 # Geometry-aware Pipe-Plate Defect Segmentation with Dynamic Attention and Star-Topology Convolution
 
-<!-- [![Paper](https://img.shields.io/badge/Paper-IEEE%20TII-blue)](https://...) -->
 [![License](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey)](https://creativecommons.org/licenses/by/4.0/)
 [![Framework](https://img.shields.io/badge/Framework-YOLOv13-orange)](https://github.com/ultralytics/ultralytics)
 [![Python](https://img.shields.io/badge/Python-3.11-blue)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.4.0-red)](https://pytorch.org/)
 
-> **Official implementation of the paper submitted to *IEEE Transactions on Industrial Informatics*.**
+> **Official implementation of the paper published in *IEEE Open Journal of the Computer Society*.**
 
-## 📋 Overview
+## Overview
 
 We present a **geometry-aware defect segmentation framework** for pipe-plate weld inspection in heat exchanger manufacturing. The proposed method addresses three core challenges in industrial defect detection: (i) irregular geometric structures of weld seams, (ii) topological complexity under non-stationary defect distributions, and (iii) poor cross-scale geometric consistency in existing segmentation pipelines.
 
 Built upon YOLOv13, our framework integrates three novel components:
 
 - **MLA-DSAM** — Multi-Level Attention with Depthwise Separable Attention Module, ensuring cross-scale geometric consistency via adaptive feature metrics.
-- **StellarConv** — A pentagram-shaped topological convolution operator that non-linearly extends the high-dimensional kernel space, reducing parameters by **87.9%** while capturing high-order directional correlations.
+- **StellarConv** — A pentagram-shaped topological convolution operator that non-linearly extends the high-dimensional kernel space, reducing operator-level parameters by **87.9%** while capturing high-order directional correlations, with the total network at only **9.81M parameters**.
 - **MASegment Head** — A Geometry-aware Segmentation Head with cross-level semantic reorganization and boundary-driven mask modulation.
 
 We also release the **first industrial-grade pipe-plate defect dataset** (18,000 HD images, 4 defect categories) to facilitate future research.
 
-## 🔥 Key Contributions
+Experimental results demonstrate state-of-the-art performance with **96.8% mask precision**, **97.4% box precision**, and **87.6% mAP<sub>50</sub>**, outperforming existing methods while maintaining real-time inference at **73.5 FPS** with only 9.81M parameters.
+
+## Key Contributions
 
 1. **MLA-DSAM Module**: Reconstructs a semantic weight mapping system based on an Adaptive Feature Metric. Multi-scale projection operators implicitly enforce local feature stability, ensuring stable fusion of cross-scale features while preserving local geometric consistency.
 
@@ -30,7 +31,7 @@ We also release the **first industrial-grade pipe-plate defect dataset** (18,000
 
 4. **Pipe-Plate Defect Dataset**: First publicly available industrial-grade benchmark with 18,000 high-definition images from nuclear power plant manufacturing, covering 4 defect categories under diverse working conditions.
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 Input Image (640×640)
@@ -56,8 +57,8 @@ Input Image (640×640)
 │  StellarConv (Topology Conv)    │
 │  ┌───────────────────────────┐  │
 │  │ Pentagram Topological     │  │
-│  │ Prior + Sparse            │  │
-│  │ Reconstruction            │  │
+│  │ Prior + Sparse Sampling  │  │
+│  │ Directional Constraints   │  │
 │  └───────────────────────────┘  │
 └─────────────────────────────────┘
        │
@@ -75,7 +76,7 @@ Input Image (640×640)
   Detection + Segmentation Masks
 ```
 
-## 📊 Performance
+## Performance
 
 ### Main Results on Pipe-Plate Defect Dataset
 
@@ -86,7 +87,7 @@ Input Image (640×640)
 | YOLOv8 | 93.9 | 89.4 | 88.0 | 87.0 | 67.6 | 11.7 | 42.7 |
 | YOLOv11 | 93.4 | 93.4 | 90.0 | 87.1 | 67.2 | 10.0 | 35.6 |
 | YOLOv12 | 95.0 | 94.7 | 89.0 | 87.0 | 66.5 | 9.75 | 33.6 |
-| YOLOv13 (baseline) | 95.8 | 88.9 | 80.9 | 87.2 | 66.0 | 9.68 | 34.4 |
+| YOLOv13 (baseline) | 88.9 | 80.9 | 80.9 | 87.2 | 66.0 | 9.68 | 34.4 |
 | **Ours** | **96.8** | **97.4** | **91.0** | **87.6** | **68.0** | **9.81** | **41.1** |
 
 ### Ablation Study
@@ -100,18 +101,34 @@ Input Image (640×640)
 | 5 | ✓ | ✓ | | 93.4 | 96.1 | 87.5 | 70.3 |
 | 6 | ✓ | | ✓ | 94.6 | 96.6 | 87.4 | 70.9 |
 | 7 | | ✓ | ✓ | 95.8 | 96.6 | 87.5 | 71.3 |
-| **8** | **✓** | **✓** | **✓** | **96.8** | **96.8** | **87.6** | **73.5** |
+| 8 | ✓ | ✓ | ✓ | **97.4** | **96.8** | **87.6** | **73.5** |
+
+### MLA-DSAM vs. Other Attention Mechanisms (YOLOv13, mean ± std over 5 runs)
+
+| Method | P<sub>box</sub> (%) | P<sub>mask</sub> (%) | R<sub>box</sub> (%) | R<sub>mask</sub> (%) | mAP<sup>50</sup><sub>box</sub> (%) |
+|--------|:---:|:---:|:---:|:---:|:---:|
+| SE | 77.6 ± 0.3 | 71.8 ± 0.4 | 74.5 ± 0.3 | 68.2 ± 0.3 | 75.8 ± 0.2 |
+| CBAM | 81.5 ± 0.2 | 75.7 ± 0.3 | 78.6 ± 0.2 | 71.7 ± 0.3 | 79.8 ± 0.2 |
+| ECA | 75.9 ± 0.3 | 70.1 ± 0.3 | 72.8 ± 0.3 | 66.0 ± 0.4 | 74.2 ± 0.2 |
+| Self-Attention | 79.7 ± 0.4 | 73.9 ± 0.3 | 76.9 ± 0.3 | 70.1 ± 0.3 | 78.3 ± 0.3 |
+| Hyper-ACE | 88.9 ± 0.2 | 95.8 ± 0.1 | 80.9 ± 0.3 | 78.0 ± 0.2 | 87.1 ± 0.2 |
+| **MLA-DSAM** | **91.0 ± 0.1** | **95.9 ± 0.1** | **89.2 ± 0.2** | **78.1 ± 0.2** | **87.5 ± 0.1** |
+
+*(Statistical significance: mAP<sup>50</sup><sub>box</sub> improvement p < 0.05; P<sub>box</sub> +2.1% p < 0.01; R<sub>box</sub> +8.3% p < 0.001)*
 
 ### Generalization on NEU Surface Defect Dataset
 
-| Model | P<sub>mask</sub> (%) | P<sub>box</sub> (%) | mAP<sup>50</sup><sub>box</sub> (%) | mAP<sup>50</sup><sub>mask</sub> (%) |
-|-------|:---:|:---:|:---:|:---:|
-| Mask R-CNN | 89.3 | 85.6 | 79.6 | 75.3 |
-| YOLOv8 | 81.9 | 83.3 | 82.1 | 78.6 |
-| YOLOv12 | 94.7 | 95.2 | 81.5 | 77.8 |
-| **Ours** | **87.3** | **87.3** | **82.9** | **78.8** |
+| Model | P<sub>mask</sub> (%) | R<sub>box</sub> (%) | P<sub>box</sub> (%) | R<sub>mask</sub> (%) | mAP<sup>50</sup><sub>box</sub> (%) | mAP<sup>50</sup><sub>mask</sub> (%) |
+|-------|:---:|:---:|:---:|:---:|:---:|:---:|
+| Mask R-CNN | 89.3 | 86.7 | 85.6 | 81.3 | 79.6 | 75.3 |
+| Cascade-Mask R-CNN | 82.6 | 84.6 | 86.6 | 79.6 | 71.6 | 72.1 |
+| YOLOv8 | 81.9 | 94.0 | 83.3 | 91.0 | 82.1 | 78.6 |
+| YOLOv11 | 82.6 | 94.0 | 82.6 | 91.0 | 81.6 | 77.2 |
+| YOLOv12 | 94.7 | 89.0 | 95.2 | 77.0 | 81.5 | 77.8 |
+| YOLOv13 | 85.2 | 94.0 | 84.9 | 91.0 | 75.9 | 72.8 |
+| **Ours** | **87.3** | **94.0** | **87.3** | **91.0** | **82.9** | **78.8** |
 
-## 📦 Dataset
+## Dataset
 
 We publicly release the **Pipe-Plate Weld Defect Dataset**, the first industrial-grade benchmark specifically designed for pipe-plate weld inspection.
 
@@ -124,9 +141,9 @@ We publicly release the **Pipe-Plate Weld Defect Dataset**, the first industrial
   - **External defects** — Surface-level structural anomalies
   - **Internal defects** — Sub-surface inclusion-type defects
 
-> 🔗 **Download**: [Baidu Netdisk](https://pan.baidu.com/s/1jM-cqot-C7zhcHpf9iwI2w) &nbsp;|&nbsp; Code: `8bma`
+> **Download**: The dataset is publicly available at this repository: [https://github.com/bianduche/pipe-plate-defect-segmentation-method](https://github.com/bianduche/pipe-plate-defect-segmentation-method)
 
-## ⚙️ Installation
+## Installation
 
 ```bash
 # Clone the repository
@@ -146,7 +163,7 @@ pip install torch>=2.4.0 torchvision
 - ultralytics (YOLO framework)
 - Ubuntu 22.04 (training) / Windows (inference)
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Training
 
@@ -164,7 +181,7 @@ Key training configuration (see `train.py` for details):
 | Batch Size | 80 |
 | Epochs | 100 |
 | Mosaic | 1.0 |
-| Weight Decay | 0.0005 |
+| Weight Decay | 5×10<sup>-4</sup> |
 
 ### Inference
 
@@ -184,7 +201,7 @@ The model architecture is defined in `yolo13.yaml`, with custom modules:
 | `MLA-DSAM` | `MLA_DSAM` | Multi-level attention with depthwise separable attention |
 | `MASegment Head` | `MASegment Head` | Geometry-aware segmentation head |
 
-## 📂 Repository Structure
+## Repository Structure
 
 ```
 pipe-plate-defect-segmentation-method/
@@ -197,25 +214,25 @@ pipe-plate-defect-segmentation-method/
 └── ultralytics/             # Modified ultralytics framework
 ```
 
-## 📝 Citation
+## Citation
 
 If you find this work useful, please cite our paper:
 
 ```bibtex
-@article{anon2025geometry,
+@article{anonymous2026geometry,
   title={Geometry-aware Pipe-Plate Defect Segmentation with Dynamic Attention and Star-Topology Convolution},
   author={Anonymous Authors},
-  journal={IEEE Transactions on Industrial Informatics},
-  year={2025},
-  note={Under Review}
+  journal={IEEE Open Journal of the Computer Society},
+  year={2026},
+  doi={10.1109/XXXX.2026.XXXXXXX}
 }
 ```
 
-## 📄 License
+## License
 
 This project is licensed under the [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/).
 
-## 🙏 Acknowledgements
+## Acknowledgements
 
 This work was supported in part by research grants. We thank the anonymous reviewers for their constructive feedback.
 
